@@ -4404,6 +4404,15 @@ func NodeProxyRequest(c clientset.Interface, node, endpoint string, port int) (r
 	}
 }
 
+// GetKubeletPort find the kubelet port from the given nodeName.
+func GetKubeletPort(c clientset.Interface, nodeName string) (int, error) {
+	node, err := c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	if err != nil {
+		return -1, fmt.Errorf("Failed to get node %s: %v", nodeName, err)
+	}
+	return int(node.Status.DaemonEndpoints.KubeletEndpoint.Port), nil
+}
+
 // GetKubeletPods retrieves the list of pods on the kubelet
 func GetKubeletPods(c clientset.Interface, node string) (*v1.PodList, error) {
 	return getKubeletPods(c, node, "pods")
@@ -4416,9 +4425,13 @@ func GetKubeletRunningPods(c clientset.Interface, node string) (*v1.PodList, err
 	return getKubeletPods(c, node, "runningpods")
 }
 
-func getKubeletPods(c clientset.Interface, node, resource string) (*v1.PodList, error) {
+func getKubeletPods(c clientset.Interface, nodeName, resource string) (*v1.PodList, error) {
+	kubeletPort, err := GetKubeletPort(c, nodeName)
+	if err != nil {
+		return nil, err
+	}
 	result := &v1.PodList{}
-	client, err := NodeProxyRequest(c, node, resource, ports.KubeletPort)
+	client, err := NodeProxyRequest(c, nodeName, resource, kubeletPort)
 	if err != nil {
 		return &v1.PodList{}, err
 	}
